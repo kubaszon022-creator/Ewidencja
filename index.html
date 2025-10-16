@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ewidencja sprzedaży</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f6f7f9;
+            padding: 20px;
+            max-width: 600px;
+            margin: auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button.zapisz { background-color: #28a745; color: white; }
+        button.pdf { background-color: #007bff; color: white; }
+        button.json { background-color: #6c757d; color: white; }
+        .przychod-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 4px rgba(0,0,0,0.1);
+        }
+        .usun-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .suma {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-align: center;
+            color: #111;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ewidencja sprzedaży 💰</h1>
+
+    <input type="number" id="kwota" placeholder="Wpisz kwotę przychodu">
+    <button class="zapisz" onclick="zapiszPrzychod()">💾 Zapisz przychód</button>
+    <button class="pdf" onclick="pobierzPDF()">📄 Pobierz PDF</button>
+    <button class="json" onclick="utworzKopieJSON()">📦 Utwórz kopię (JSON)</button>
+
+    <div class="suma">Suma przychodów: <span id="suma">0.00</span> zł</div>
+
+    <h3>Historia:</h3>
+    <div id="lista"></div>
+
+    <script>
+        let przychody = JSON.parse(localStorage.getItem('przychody')) || [];
+
+        function zapiszPrzychod() {
+            const kwota = parseFloat(document.getElementById('kwota').value);
+            if (!kwota || kwota <= 0) {
+                alert('Podaj poprawną kwotę.');
+                return;
+            }
+
+            const nowy = {
+                data: new Date().toLocaleString('pl-PL'),
+                kwota: kwota
+            };
+
+            przychody.push(nowy);
+            localStorage.setItem('przychody', JSON.stringify(przychody));
+
+            document.getElementById('kwota').value = '';
+            wyswietlPrzychody();
+        }
+
+        function wyswietlPrzychody() {
+            const lista = document.getElementById('lista');
+            lista.innerHTML = '';
+
+            przychody.forEach((p, index) => {
+                const div = document.createElement('div');
+                div.className = 'przychod-item';
+                div.innerHTML = `
+                    <div>${p.data}<br><strong>${p.kwota.toFixed(2)} zł</strong></div>
+                    <button class="usun-btn" onclick="usunPrzychod(${index})">❌ Usuń</button>
+                `;
+                lista.appendChild(div);
+            });
+
+            const suma = przychody.reduce((a, b) => a + b.kwota, 0);
+            document.getElementById('suma').textContent = suma.toFixed(2);
+        }
+
+        function usunPrzychod(index) {
+            if (confirm('Czy na pewno chcesz usunąć ten przychód?')) {
+                przychody.splice(index, 1);
+                localStorage.setItem('przychody', JSON.stringify(przychody));
+                wyswietlPrzychody();
+            }
+        }
+
+        async function pobierzPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text('Ewidencja sprzedaży', 10, 10);
+
+            let y = 20;
+            przychody.forEach(p => {
+                doc.text(`${p.data} - ${p.kwota.toFixed(2)} zł`, 10, y);
+                y += 8;
+            });
+
+            doc.text(`\nSuma: ${przychody.reduce((a,b)=>a+b.kwota,0).toFixed(2)} zł`, 10, y + 10);
+            doc.save('ewidencja_sprzedazy.pdf');
+        }
+
+        function utworzKopieJSON() {
+            const data = new Blob([JSON.stringify(przychody, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ewidencja_sprzedazy.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        wyswietlPrzychody();
+    </script>
+</body>
+</html>
